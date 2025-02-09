@@ -65,10 +65,33 @@ class BinaryTree:
         else:
             self._add_recursion(child, value)
             parent.balance_factor += balance_change
-            if parent.balance_factor > 1 or parent.balance_factor < -1:
-                logging.info("Балансировка дерева в ноде {}. Замена Родителя на {}".format(parent,
-                                                                                           getattr(parent,
-                                                                                                   direction_attribute)))
+            if not self._has_children(parent) and self._is_rotating_time(parent):
+                logging.info("Балансировка дерева в ноде {}. Замена Родителя на {}".format(parent, child))
+                self._balancing_branch(parent, child)
+
+    @staticmethod
+    def _has_children(parent: BinaryNode) -> bool:
+        return parent.l_child and parent.r_child
+
+    @staticmethod
+    def _is_rotating_time(parent: BinaryNode) -> bool:
+        return parent.balance_factor < -1 or parent.balance_factor > 1
+
+    def _balancing_branch(self,
+                          parent: BinaryNode,
+                          child: BinaryNode) -> None:
+        """Балансировка/поворот ветви дерева
+
+        :param parent: Изменяемая нода
+        :param child: Перемещаемая нода
+        """
+        if parent.balance_factor > 0:  # поворот правой ветви
+            parent.l_child = self.BinaryNode(parent.data)  # смещение родителя
+            parent.data, parent.r_child = child.data, child.r_child  # смещение ребенка
+        else:  # поворот левой ветви
+            parent.r_child = self.BinaryNode(parent.data)
+            parent.data, parent.l_child = child.data, child.l_child
+        parent.balance_factor = 0
 
     def print(self) -> None:
         """Удобное отображение дерева в командной строке"""
