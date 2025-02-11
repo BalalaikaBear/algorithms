@@ -1,97 +1,154 @@
 import logging
-from typing import Any, Optional, Iterable, Callable
+from typing import Optional, Any, Iterable, Callable
 
 
-class BinaryTree:
-    """Бинарная древовидная структура данных."""
+class Node:
+    def __init__(self, value: Any):
+        self.data: Any = value
+        self.left: Optional["Node"] = None
+        self.right: Optional["Node"] = None
+        self.height: int = 1  # высота узла
 
-    class BinaryNode:
-        """Тип данных, хранящий значение, и информацию о детях."""
+    def __str__(self) -> str:
+        return f"{type(self).__name__}({self.data!r})"
 
-        def __init__(self, value: Any) -> None:
-            self.data = value
-            self.l_child = None
-            self.r_child = None
-            self.balance_factor: int = 0  # коэффициент балансировки
+    def __repr__(self) -> str:
+        return f"<{self}>"
 
-        def __str__(self) -> str:
-            return f"{type(self).__name__}({self.data!r})"
 
-        def __repr__(self) -> str:
-            return f"<{self}>"
-
+class AVLTree:
     def __init__(self,
                  data: Optional[Iterable] = None,
-                 key: Optional[Callable] = None) -> None:
-        self.root = None
+                 *,
+                 key: Optional[Callable] = None,
+                 rewrite: bool = False) -> None:
+        self.root: Optional[Node] = None  # корень дерева
+        self.rewrite = rewrite
 
-    def append(self, value: Any) -> None:
-        """Добавление значения в дерево.
+    def insert(self, array: Iterable) -> None:
+        """Добавление последовательности в дерево.
+
+        :param array: Последовательность
+        """
+        for value in array:
+            self.append(value)
+
+    def append(self, value: int) -> None:
+        """Добавление объекта в дерево.
 
         :param value: Любой объект, имеющий сравнивающие методы.
         """
-        if self.root is None:
-            self.root = self.BinaryNode(value)
-            logging.info("Запись значения в корневую ноду {}".format(self.root))
-        else:
-            try:
-                self._add_recursion(self.root, value)
-            except ValueError:
-                pass
+        self.root = self._append(self.root, value)
 
-    def _add_recursion(self,
-                       parent: Optional[BinaryNode],
-                       value: Any) -> None:
-        """Рекурсивная функция для добавления значения в свободное место.
+    def _append(self, node: Optional[Node], value: int) -> Node:
+        """Рекурсивная функция добавления объекта в дерево.
 
-        :param parent: Проверяемая нода в дереве.
-        :param value: Любой объект, имеющий сравнивающие методы.
+        :param node: Проверяемый узел.
+        :param value: Добавляемый объект.
+        :return: Возвращает корень дерева.
         """
-        if value < parent.data:  # левый ребенок
-            direction_attribute = 'l_child'
-            balance_change = -1
-        elif value > parent.data:  # правый ребенок
-            direction_attribute = 'r_child'
-            balance_change = 1
-        else:  # совпадение значения
-            raise ValueError('Object {} is already exist in {}'.format(value, type(self).__name__))
+        if not node:
+            new_node = Node(value)
+            logging.info("Создание узла {}".format(new_node))
+            return new_node
 
-        child = getattr(parent, direction_attribute)
-
-        if child is None:
-            setattr(parent, direction_attribute, self.BinaryNode(value))
-            parent.balance_factor += balance_change
-            logging.info("Запись значения в ноду {} родителя {}".format(getattr(parent, direction_attribute), parent))
+        if self.rewrite and value == node.data:
+            new_node = Node(value)
+            logging.info("Перезаписывание значения в узел {}".format(new_node))
+            return new_node
+        elif value < node.data:
+            node.left = self._append(node.left, value)
         else:
-            self._add_recursion(child, value)
-            parent.balance_factor += balance_change
-            if not self._has_children(parent) and self._is_rotating_time(parent):
-                logging.info("Балансировка дерева в ноде {}. Замена Родителя на {}".format(parent, child))
-                self._balancing_branch(parent, child)
+            node.right = self._append(node.right, value)
+
+        return self._balance(node)
+
+    def _balance(self, node: Node) -> Node:
+        """Балансировка дерева
+
+        :param node: Верхний узел дерева.
+        :return: Возвращает новый верхний узел.
+        """
+        self._update_height(node)
+        bf = self._balance_factor(node)
+
+        # левый перекос
+        if bf > 1:
+            if self._balance_factor(node.left) < 0:
+                logging.info("Левый поворот узла {}".format(node.left))
+                node.left = self._rotate_left(node.left)  # большой правый поворот
+            logging.info("Правый поворот узла {}".format(node))
+            return self._rotate_right(node)
+
+        # правый перекос
+        if bf < -1:
+            if self._balance_factor(node.right) > 0:
+                logging.info("Правый поворот узла {}".format(node.right))
+                node.right = self._rotate_right(node.right)  # большой левый поворот
+            logging.info("Левый поворот узла {}".format(node))
+            return self._rotate_left(node)
+
+        return node
+
+    def _update_height(self, node: Optional[Node]) -> None:
+        """Обновление высоты узла
+
+        :param node: Обновляемый узел.
+        """
+        if node:
+            height = 1 + max(self._height(node.left), self._height(node.right))
+            node.height = height
 
     @staticmethod
-    def _has_children(parent: BinaryNode) -> bool:
-        return parent.l_child and parent.r_child
+    def _height(node: Optional[Node]) -> int:
+        """Определение высоты узла.
 
-    @staticmethod
-    def _is_rotating_time(parent: BinaryNode) -> bool:
-        return parent.balance_factor < -1 or parent.balance_factor > 1
-
-    def _balancing_branch(self,
-                          parent: BinaryNode,
-                          child: BinaryNode) -> None:
-        """Балансировка/поворот ветви дерева
-
-        :param parent: Изменяемая нода
-        :param child: Перемещаемая нода
+        :param node: Узел дерева.
+        :return: Возвращает сохраненную высоту узла. Если узел не создан - возвращает 0.
         """
-        if parent.balance_factor > 0:  # поворот правой ветви
-            parent.l_child = self.BinaryNode(parent.data)  # смещение родителя
-            parent.data, parent.r_child = child.data, child.r_child  # смещение ребенка
-        else:  # поворот левой ветви
-            parent.r_child = self.BinaryNode(parent.data)
-            parent.data, parent.l_child = child.data, child.l_child
-        parent.balance_factor = 0
+        return node.height if node else 0
+
+    def _balance_factor(self, node: Optional[Node]) -> int:
+        """Разница между высотой левого и правого поддерева у конкретного узла.
+
+        :param node: Узел дерева.
+        :return: Возвращает коэффициент балансировки.
+        """
+        return self._height(node.left) - self._height(node.right) if node else 0
+
+    def _rotate_left(self, parent: Node) -> Node:
+        """Левый поворот ветви дерева
+
+        :param parent: Верхний узел дерева.
+        :return: Возвращает новый верхний узел.
+        """
+        new_parent: Node = parent.right
+        sub_branch: Optional[Node] = new_parent.left
+
+        new_parent.left = parent
+        parent.right = sub_branch
+
+        self._update_height(parent)
+        self._update_height(new_parent)
+
+        return new_parent
+
+    def _rotate_right(self, parent: Node) -> Node:
+        """Правый поворот ветви дерева
+
+        :param parent: Верхний узел дерева.
+        :return: Возвращает новый верхний узел.
+        """
+        new_parent: Node = parent.left
+        sub_branch: Optional[Node] = new_parent.right
+
+        new_parent.right = parent
+        parent.left = sub_branch
+
+        self._update_height(parent)
+        self._update_height(new_parent)
+
+        return new_parent
 
     def print(self) -> None:
         """Удобное отображение дерева в командной строке"""
@@ -100,11 +157,10 @@ class BinaryTree:
     def _print_recursion(self, node, depth=0, prefix='\033[0mRoot: ') -> None:
         """Рекурсивная функция для удобного отображения дерева в командной строке"""
         if node is not None:
-            print('\033[90m' + "|   " * (depth - 1) + prefix + '\033[92m' + str(node.data) + '(BF={})'.format(
-                node.balance_factor) + '\033[0m')
-            if node.l_child or node.r_child:
-                self._print_recursion(node.l_child, depth + 1, '├-- \033[0mL: ')
-                self._print_recursion(node.r_child, depth + 1, '├-- \033[0mR: ')
+            print('\033[90m' + "|   " * (depth - 1) + prefix + '\033[92m' + str(node.data) + '\033[0m')
+            if node.left or node.right:
+                self._print_recursion(node.left, depth + 1, '├-- \033[0mL: ')
+                self._print_recursion(node.right, depth + 1, '├-- \033[0mR: ')
 
 
 if __name__ == '__main__':
@@ -114,12 +170,9 @@ if __name__ == '__main__':
                         encoding='UTF-8',
                         format='LOGGING_LEVEL: %(levelno)s - %(message)s')
 
-    r = BinaryTree()
-    r.append(10)
-    r.append(11)
-    r.append(3)
-    r.append(7)
-    r.append(8)
-    r.append(9)
-    r.append(9)
+    r = AVLTree(rewrite=True)
+    list_ = [10, 20, 3, 7, 8, 9, 1, 1, 1, 1]
+
+    r.insert(list_)
     r.print()
+    print(r.root)
