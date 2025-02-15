@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Any, Iterable, Callable
+from typing import Optional, Any, Iterable, Callable, Generator
 
 
 class Node:
@@ -190,8 +190,20 @@ class AVLTree:
 
         return self._balance(node)
 
-    def _find_value(self, node: Optional[Node], value: Any) -> Node:
+    def __contains__(self, item: Any) -> bool:
         """Поиск объекта/значения в дереве.
+
+        :param item: Объект/значение для поиска.
+        :return: Возвращает ``True`` при наличии объекта в дереве, иначе возвращает ``False``.
+        """
+        try:
+            self._find_value(self.root, item)
+            return True
+        except ValueError:
+            return False
+
+    def _find_value(self, node: Optional[Node], value: Any) -> Node:
+        """Рекурсивный поиск объекта/значения в дереве.
 
         :param node: Узел, в котором осуществляется поиск.
         :param value: Объект/значение для поиска.
@@ -202,14 +214,29 @@ class AVLTree:
             raise ValueError(f'value {value} is not in {self}')
 
         if value < node.data:
-            node.left = self._delete(node.left, value)
+            node.left = self._find_value(node.left, value)
         elif value > node.data:
-            node.right = self._delete(node.right, value)
+            node.right = self._find_value(node.right, value)
         else:
             logging.info("Значение {} найдено".format(value))
             return node
 
-    def _min_value_node(self, node: Node) -> Node:
+    def min_value(self) -> Any:
+        """Минимальное значение в дереве.
+
+        :return: Возвращает минимальное значение.
+        """
+        return self._min_value_node(self.root).data
+
+    def max_value(self) -> Any:
+        """Максимальное значение в дереве.
+
+        :return: Возвращает максимальное значение.
+        """
+        return self._max_value_node(self.root).data
+
+    @staticmethod
+    def _min_value_node(node: Node) -> Node:
         """Поиск минимального значения.
 
         :param node: Узел начала поиска.
@@ -218,6 +245,22 @@ class AVLTree:
         while node.left:
             node = node.left
         return node
+
+    @staticmethod
+    def _max_value_node(node: Node) -> Node:
+        """Поиск максимального значения.
+
+        :param node: Узел начала поиска.
+        :return: Узел ``node`` с максимальным значением.
+        """
+        while node.right:
+            node = node.right
+        return node
+
+    def clear(self) -> None:
+        """Очистка дерева"""
+        self.root = None
+        self._len = 0
 
     def print(self) -> None:
         """Удобное отображение дерева в командной строке"""
@@ -230,6 +273,49 @@ class AVLTree:
             if node.left or node.right:
                 self._print_recursion(node.left, depth + 1, '├-- \033[0mL: ')
                 self._print_recursion(node.right, depth + 1, '├-- \033[0mR: ')
+
+    def __iter__(self) -> Generator[Any, None, None]:
+        """Обход элементов дерева в порядке возрастания.
+
+        :return: ``Generator`` элементов дерева в порядке возрастания.
+        """
+        yield from self._in_order(self.root)
+
+    def _in_order(self, node: Optional[Node]) -> Generator[Any, None, None]:
+        """Рекурсивный обход элементов дерева в порядке возрастания.
+
+        :param node: Узел начала обхода.
+        :return: ``Generator`` элементов дерева в порядке возрастания.
+        """
+        if node:
+            yield from self._in_order(node.left)
+            yield node.data
+            yield from self._in_order(node.right)
+
+    def reversed(self) -> Generator[Any, None, None]:
+        """Обход элементов дерева в порядке убывания.
+
+        :return: ``Generator`` элементов дерева в порядке убывания.
+        """
+        return self.__reversed__()
+
+    def __reversed__(self) -> Generator[Any, None, None]:
+        """Обход элементов дерева в порядке убывания.
+
+        :return: ``Generator`` элементов дерева в порядке убывания.
+        """
+        yield from self._in_reverse_order(self.root)
+
+    def _in_reverse_order(self, node: Optional[Node]) -> Generator[Any, None, None]:
+        """Рекурсивный обход элементов дерева в порядке убывания.
+
+        :param node: Узел начала обхода.
+        :return: ``Generator`` элементов дерева в порядке убывания.
+        """
+        if node:
+            yield from self._in_reverse_order(node.right)
+            yield node.data
+            yield from self._in_reverse_order(node.left)
 
     def __hash__(self) -> int:
         return hash(self.root)
@@ -256,5 +342,4 @@ if __name__ == '__main__':
     print(r.root)
     r.delete(8)
     r.print()
-    print(len(r))
-    print(hash(r))
+    print(max(r))
