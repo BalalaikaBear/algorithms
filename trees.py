@@ -4,6 +4,7 @@ from typing import Optional, Any, Iterable, Callable, Generator
 
 class Node:
     """Узел для АВЛ-дерева"""
+
     def __init__(self, value: Any):
         self.data: Any = value
         self.left: Optional["Node"] = None
@@ -14,7 +15,7 @@ class Node:
         return hash((self.data, self.left, self.right))
 
     def __bool__(self) -> bool:
-        return True if self.data else False
+        return True if self.data is not None else False
 
     def __str__(self) -> str:
         return f"{type(self).__name__}({self.data!r})"
@@ -25,6 +26,7 @@ class Node:
 
 class AVLTree:
     """Сбалансированное по высоте двоичное дерево поиска"""
+
     def __init__(self,
                  data: Optional[Iterable] = None,
                  *,
@@ -34,12 +36,15 @@ class AVLTree:
         self.rewrite = rewrite
         self._len: int = 0
 
-    def insert(self, array: Iterable) -> None:
+        if data:
+            self.insert(data)
+
+    def insert(self, iterable: Iterable) -> None:
         """Добавление последовательности в дерево.
 
-        :param array: Последовательность
+        :param iterable: Последовательность
         """
-        for value in array:
+        for value in iterable:
             self.append(value)
 
     def append(self, value: int) -> None:
@@ -63,9 +68,9 @@ class AVLTree:
             return new_node
 
         if self.rewrite and value == node.data:
-            new_node = Node(value)
-            logging.info("Перезаписывание значения в узел {}".format(new_node))
-            return new_node
+            node.data = value
+            logging.info("Перезаписывание значения в узел {}".format(node))
+            return node
         elif value < node.data:
             node.left = self._append(node.left, value)
         else:
@@ -174,7 +179,14 @@ class AVLTree:
         :param value: Значение для удаления из дерева.
         :return: Возвращает перезаписанный (корневой) узел ``node``.
         """
-        if self._find_value(node, value):
+        if node is None:
+            raise ValueError(f'value {value} is not in {self}')
+
+        if value < node.data:
+            node.left = self._delete(node.left, value)
+        elif value > node.data:
+            node.right = self._delete(node.right, value)
+        else:
             # узел с одним ребенком
             if not node.left:
                 return node.right
@@ -214,9 +226,9 @@ class AVLTree:
             raise ValueError(f'value {value} is not in {self}')
 
         if value < node.data:
-            node.left = self._find_value(node.left, value)
+            self._find_value(node.left, value)
         elif value > node.data:
-            node.right = self._find_value(node.right, value)
+            self._find_value(node.right, value)
         else:
             logging.info("Значение {} найдено".format(value))
             return node
@@ -326,20 +338,32 @@ class AVLTree:
     def __len__(self) -> int:
         return self._len
 
+    def __str__(self) -> str:
+        return f"{type(self).__name__}({str(list(self))[1:-1]})"
+
+    def __repr__(self) -> str:
+        return f"<{type(self).__name__}({self._len})>"
+
+
 if __name__ == '__main__':
+    import random
+
     logging.basicConfig(level=logging.INFO,
                         filemode='w',
                         filename='trees_log.txt',
                         encoding='UTF-8',
                         format='LOGGING_LEVEL: %(levelno)s - %(message)s')
 
-    r = AVLTree(rewrite=True)
-    list_ = [10, 20, 3, 7, 8, 9, 1, 6, 1, 1]
-
-    r.insert(list_)
+    random_list = [random.randint(-20, 100) for _ in range(10)]
+    problem_cases = [
+        [-17, -12, -12, 6, 14, 66, 75, 85, 94, 95],
+        [-15, -3, 4, 4, 14, 48, 54, 55, 59, 70],
+        [3, 3, 5, 13, 26, 46, 46, 53, 65, 80]
+    ]
+    random_list = problem_cases[0]
+    print('random_list: ', sorted(random_list))
+    r = AVLTree(random_list, rewrite=True)
+    print('list_in_tree:', list(r))
     r.print()
-    print(len(r))
-    print(r.root)
-    r.delete(8)
+    r.delete(-12)
     r.print()
-    print(max(r))
