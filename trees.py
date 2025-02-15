@@ -10,6 +10,12 @@ class Node:
         self.right: Optional["Node"] = None
         self.height: int = 1  # высота узла
 
+    def __hash__(self) -> int:
+        return hash((self.data, self.left, self.right))
+
+    def __bool__(self) -> bool:
+        return True if self.data else False
+
     def __str__(self) -> str:
         return f"{type(self).__name__}({self.data!r})"
 
@@ -225,6 +231,12 @@ class AVLTree:
                 self._print_recursion(node.left, depth + 1, '├-- \033[0mL: ')
                 self._print_recursion(node.right, depth + 1, '├-- \033[0mR: ')
 
+    def __hash__(self) -> int:
+        return hash(self.root)
+
+    def __bool__(self) -> bool:
+        return bool(self.root)
+
     def __len__(self) -> int:
         return self._len
 
@@ -245,3 +257,4 @@ if __name__ == '__main__':
     r.delete(8)
     r.print()
     print(len(r))
+    print(hash(r))
